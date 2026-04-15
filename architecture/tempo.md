@@ -2,13 +2,20 @@
 
 ## 1. Subblock 设计目的
 
-`subblock` 不是共识主块本身，而是给“下一位 proposer”的候选交易包。
+`subblock` 不是共识主块本身，而是给“下一位 proposer”的候选交易包(validator shared blockspace)。
 
-核心目的：
+SubBlock 的定位:
+让交易供给从“proposer 单点构建”变成“验证者协作供给”，本质上就是一个 fallback 机制。
 
-1. 提前并行化交易筛选与执行前校验，降低 proposer 出块路径压力。
-2. 缓解单节点本地 mempool 视图不一致问题，把更多有效交易带给 proposer。
-3. 让交易供给从“proposer 单点构建”变成“验证者协作供给”。
+正常情况下，交易走 mempool → proposer 打包（450M gas, 90%），这条路径完全够用。SubBlock 提供了一条绕过 proposer 选择权的备用通道（50M gas, 10%）：
+
+- 用户通过 nonce_key 编码 [0x5b | validator_pubkey_15bytes | ...] 将交易绑定到特定验证者, 该验证者预执行后打包成签名的 SubBlock 发给 proposer
+- Proposer 通过 GasIncentive 机制被激励（非强制）包含这些 SubBlock
+
+### 什么场景需要？
+- Proposer 审查/不合作时：某笔支付交易被 proposer 忽略或故意不打包，subblock 提供了替代路径
+- Proposer 交易池满时：450M gas 被填满的极端情况下，subblock 的 50M 独立空间仍可用
+但 10% 的 gas 配额 + 非强制包含的设计，说明这确实更多是防御性的 fallback，而不是主力通道。对于一条支付链来说，"保证交易在极端情况下也能上链"本身就有价值，即使日常 99% 的流量走的是正常 mempool 路径。
 
 对应实现入口：`crates/commonware-node/src/subblocks.rs`
 
