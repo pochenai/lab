@@ -161,3 +161,93 @@ What is L2 finalized block? The L1 block that includes the L2 block is finalized
     - bootnode setup: https://github.com/QuarkChain/pm/blob/main/L2/mainnet_bootnode.md
     - test hardfork: https://github.com/QuarkChain/pm/blob/main/L2/hardfork_devnet_test.md
     - basic tests after launching a new node: https://github.com/QuarkChain/pm/issues/35
+
+
+
+## TX data types
+- 跨进程一定是 RLP（RPC ↔ p2p ↔ Engine API ↔ batcher ↔ L1）—— 这是协议层规定，互操作性的底线
+- 进程内内存里是 OpTxEnvelope —— 只要要"算"什么（执行、签名校验、gas 估算），就得反序列化成它
+- MDBX 落盘是 Compact:Size trait类型 —— reth 的私有优化，只在 op-reth 进程的 DB 里出现，节省 ~20-40% 空间
+    - impl Compact for TxDeposit 
+```
+impl Compact for TxDeposit {
+    fn to_compact<B>(&self, buf: &mut B) -> usize
+    where
+        B: bytes::BufMut + AsMut<[u8]>,
+    {
+        CompactTxDeposit::from(self).to_compact(buf)
+    }
+
+    fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
+        let (compact, buf) = CompactTxDeposit::from_compact(buf, len);
+        (compact.into(), buf)
+    }
+}
+```
+
+
+进程内TxEnvelop相关转换:
+```
+                    ┌─ TxLegacy   ──Signed─→  Signed<TxLegacy>   ─┐
+                    ├─ TxEip2930  ──Signed─→  Signed<TxEip2930>  ─┤
+原始字段 struct ────┼─ TxEip1559  ──Signed─→  Signed<TxEip1559>  ─┤
+   (无 type byte,   ├─ TxEip7702  ──Signed─→  Signed<TxEip7702>  ─┼─→ OpTxEnvelope
+    无 hash)        ├─ TxEip8130  ──Sealed─→  Sealed<TxEip8130>  ─┤   (enum, 带 type byte)
+                    ├─ TxDeposit  ──Sealed─→  Sealed<TxDeposit>  ─┤
+                    └─ TxPostExec ──Sealed─→  Sealed<TxPostExec> ─┘
+                                  ↑
+                       Signed = T + ECDSA Signature + hash
+                       Sealed = T + hash         (验签信息内嵌在 T 里)
+```
+一句话：TxEip8130 是"光秃秃的字段"，OpTxEnvelope::Eip8130 是"打好 hash 又贴上 type 标签的成品"，可以丢进通用容器、走 2718 编解码、被 executor/RPC/pool 一视同仁地处理。转换就是给这笔交易"上车"——上 OP Stack 通用执行流水线的车。
+
+
+## 一些特殊的地址区分
+
+EVM 体系下的"特殊地址 / 特殊合约"容易混在一起，按两个**独立**维度可以彻底拆开：
+
+1. **部署机制**：客户端 native（不进状态树）/ 普通 CREATE / 创世预埋 / 硬分叉 irregular state transition
+2. **写入 ACL**：合约自己代码里的 `msg.sender` 检查 —— 是限定为某个 system address，还是开放给任何人
+
+这两维**正交**，所以用第二维（写入 ACL）去切"非 CREATE 部署"那一类，能干净分出 System Contract 和 Predeploy。
+
+### 四类对比
+
+| 类别 | 典型地址 | 部署机制 | 有 bytecode? | 谁能 read（CALL） | 谁能 write（合约 ACL） | 典型用途 |
+|---|---|---|---|---|---|---|
+| **Precompile** | `0x01` ecrecover / `0x02` sha256 / `0x06` bn256add / `0x0a` kzg / `0x100` p256verify (OP) | 客户端 native code 实现，**不进状态树** | ❌ 无 EVM bytecode | 任何人 CALL | 无状态可写（无意义） | 密码学 / 数学原语 |
+| **System Address** | `0xfffffffffffffffffffffffffffffffffffffffe` (ETH) / `0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001` (OP depositor) | **不是合约**，无私钥的 sender 标识 | N/A | N/A | N/A（自己当 `from` 调别人） | 给协议自动发起的内部调用提供"假身份" |
+| **System Contract** | `0x000...0002` BEACON_ROOTS (EIP-4788) / `0x4200...0015` OP L1Block / `0x000...0935` History Storage (EIP-2935) | 创世预埋 或 硬分叉 irregular state transition | ✅ Solidity 字节码 | 任何人（read 路径开放） | **仅 system address**（合约内 `if msg.sender == SYSTEM_ADDR { ...write... }`） | 协议级元数据 —— beacon root / L1 区块信息 / history hashes |
+| **Predeploy / Preinstalled** | `0x13b0D85CcB8bf860b6b79AF3029fCA081AE9beF2` CREATE2_DEPLOYER (OP, Canyon 硬分叉注入) | 硬分叉 irregular state transition | ✅ Solidity 字节码 | 任何人 | **任何人**（合约自身无 sender ACL） | 公共工具合约 —— CREATE2 工厂 / MultiCall 等 |
+
+### 两维独立、不要混淆
+
+部署机制和写入 ACL 完全正交，交叉分类：
+
+|  | 写入开放 | 写入 protocol-only |
+|---|---|---|
+| 客户端 native | Precompile（无状态，ACL 无意义） | — |
+| 创世 / 硬分叉强插 | **Predeploy / Preinstalled** | **System Contract** |
+| 普通 CREATE | 普通用户合约 | 用户合约里自己加 ACL（罕见） |
+
+System Contract 和 Predeploy 在"部署机制"维度上**完全一样**（都是非 CREATE 路径"凭空出现"），区别**只在合约自己代码里加不加 sender ACL 检查**。所以"是不是 predeploy" 跟 "谁能写" 没有蕴含关系，不能互相推。
+
+`0x4200...XXXX` 这一整段地址在 OP 里是 predeploy 命名空间，但其中**两类都有**：`L1Block`（写路径 protocol-only）属 System Contract，`MultiCall3` 这种属 Predeploy / Preinstalled。光看地址前缀分不出来，得看合约里的 ACL。
+
+### ETH 主网 vs OP Stack
+
+| 类别 | ETH 主网 | OP Stack |
+|---|---|---|
+| Precompile | ✅ 一堆 | ✅ 多了 P256VERIFY / BLS 等 |
+| System Address | ✅ `0xfff...fffe` | ✅ `0xdead...0001` (depositor) |
+| System Contract | ✅ BEACON_ROOTS / History Storage / Withdrawal Queue 等 | ✅ L1Block / Withdrawal / GasPriceOracle 等 |
+| **Predeploy（开放写入的公共工具）** | ❌ **基本没有** | ✅ CREATE2_DEPLOYER / MultiCall3 等 |
+
+ETH 主网上类似 CREATE2 工厂的公共合约是社区个人用普通 tx 部署的（典型如 `0x4e59b44847b379578588920ca78fbf26c0b4956c`，是 Arachnid 自己 deploy 的），**不走 predeploy 路径**。OP 真正比 ETH 多出来的，就是 **Predeploy / Preinstalled** 这一类 —— L2 用硬分叉 irregular state transition 把高频公共工具直接预埋到状态里，让用户开箱即用。
+
+### 速记口诀
+
+- **Precompile** = 协议给的"魔法函数"（无字节码、无状态）
+- **System Address** = 协议自己的"假身份"（不是合约，是 sender）
+- **System Contract** = 协议自己的"私有黑板"（任何人能看，只有协议能写）
+- **Predeploy** = 协议帮大家预埋的"公共工具"（部署特殊，调用普通）
