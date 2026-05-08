@@ -430,4 +430,6 @@ updateL1BlockProxy := &types.DepositTx{
 
 重放时只要新版本 EL 里硬编码的 `hardcoded_bytecode_v2` 有任何字节变化，状态根立刻不同。且 block 里没有 tx 痕迹，用户和审计无从在 explorer 上看到发生了什么。——这就是为什么 OP 从不走这条路。
 
+## 特殊情况升级Cayon Create2
+- 见[op-stack 一些特殊地址的区分](../eth/notes/op-stack.md#一些特殊的地址区分)
 
