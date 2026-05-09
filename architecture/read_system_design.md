@@ -1,5 +1,8 @@
 # 如何快速读懂一个系统的设计
 核心: 先找 **spine**（贯穿全程的主干），再按 spine 的形式选切入方法。trait-first 不是普世规则，只在 capability-style 系统里成立。
+spine 有两层：
+1. semantic spine：世界模型、状态转移、不变量
+2. execution spine：main loop、event flow、pipeline、trait dispatch
 > 因为大多数代码没有大纲，需要自己从代码中先找出找大纲/主干。
 
 ## 系统的三种形态 → 三种 spine
@@ -28,3 +31,40 @@
 
 ## 一句话总结
 **spine first。trait / invariant / event loop 只是 spine 在不同系统里的语法形式。**
+
+# 复杂系统设计
+
+## 复杂性来源
+复杂度≈实体*状态*并发*时间*外部事件
+- 实体: 多个角色
+- 状态转移维度过多:
+    - 并发: 多读多写
+    - 时间: 异步引起的超时/过期/重试/backoff等
+    - 外部事件: 外部事件会触发状态变化
+
+(new_state, output, effects) = f(old_state, input, time, external_world)
+- 相对于无状态系统，多了几个维度：历史、顺序、失败、重试、并发观察者、旧 state 和新 state 的切换。
+
+## 怎么理解并设计这样的系统？
+建立世界模型: 实体+状态+关系+转移。
+1. 实体：这个世界里有哪些东西？
+2. 状态：每个实体可能处于什么状态？
+3. 关系：实体之间有什么约束关系？
+4. 转移：什么事件/命令能改变状态？
+5. 不变量：哪些关系在所有状态下都必须成立？
+6. 观察视图：外部如何查询/订阅这个世界？
+7. 副作用：状态变化后要对外做什么？
+
+
+# 读系统 vs 设计系统
+
+## 读系统
+- 先找执行 spine：main loop / event flow / dispatcher
+- 再还原语义 spine：实体 / 状态 / 转移 / 不变量
+- 最后看接口和数据结构：trait / storage / index / cache
+
+## 设计系统
+反过来更自然：
+- 先建语义 spine：实体 + 状态 + 转移 + 不变量
+- 再设计执行 spine：command/event 如何进入，main loop 如何调度
+- 再设计边界：API / trait / storage / subscription
