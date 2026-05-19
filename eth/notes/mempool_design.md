@@ -1,4 +1,4 @@
-# Understanding Reth's Best Tx Iterator: A k-way Merge and MVCC Snapshot Perspective
+# Understanding Reth's Mempool Best Tx design: A k-way Merge and MVCC Snapshot Perspective
 
 ## Terminology Explanation
 
@@ -57,15 +57,13 @@ flowchart LR
     O -->|push Bob next| Q
 ```
 
-The diagram has one key idea: the priority queue does not contain all transactions. It only contains the currently executable head from each sender. Initially, the queue is `{Alice n0/gp30, Bob n0/gp90, Carol n0/gp60}`, so it pops `Bob n0/gp90`. Then it pushes `Bob n1/gp95`, making the next queue `{Alice n0/gp30, Bob n1/gp95, Carol n0/gp60}`. Although `Alice n1/gp120` has a higher gas price, it cannot enter the queue until `Alice n0/gp30` has been popped.
-
-Running the process to completion gives this sequence:
+The diagram has one key idea: the priority queue does not contain all transactions. Running the process to completion gives this sequence:
 
 | step | priority queue before pop | pop | push next |
 |---|---|---|---|
-| 1 | Alice n0/gp30, Bob n0/gp90, Carol n0/gp60 | Bob n0/gp90 | Bob n1/gp95 |
-| 2 | Alice n0/gp30, Bob n1/gp95, Carol n0/gp60 | Bob n1/gp95 | - |
-| 3 | Alice n0/gp30, Carol n0/gp60 | Carol n0/gp60 | - |
+| 1 | Bob n0/gp90, Carol n0/gp60, Alice n0/gp30 | Bob n0/gp90 | Bob n1/gp95 |
+| 2 | Bob n1/gp95, Carol n0/gp60, Alice n0/gp30 | Bob n1/gp95 | - |
+| 3 | Carol n0/gp60, Alice n0/gp30  | Carol n0/gp60 | - |
 | 4 | Alice n0/gp30 | Alice n0/gp30 | Alice n1/gp120 |
 | 5 | Alice n1/gp120 | Alice n1/gp120 | Alice n2/gp70 |
 | 6 | Alice n2/gp70 | Alice n2/gp70 | - |
