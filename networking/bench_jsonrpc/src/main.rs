@@ -1,9 +1,9 @@
 /* same with go
 cargo run --release -- -target-json-mib 1
  */
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use hmac::{Hmac, Mac};
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use serde_json::value::RawValue;
 use sha2::Sha256;
 use std::{
@@ -262,25 +262,23 @@ fn main() -> Result<()> {
     println!("tx_count: {}", payload.transactions.len());
     println!("tx_bytes: {} raw bytes each", cfg.tx_bytes);
     println!("tx_decode: bytes");
+    let e2e = summarize(&results, |s| s.e2e);
+    let req_marshal = summarize(&results, |s| s.req_marshal);
+    let req_unmarshal = summarize(&results, |s| s.req_unmarshal);
+    let resp_marshal = summarize(&results, |s| s.resp_marshal);
+    let resp_unmarshal = summarize(&results, |s| s.resp_unmarshal);
+    let json_codec_total = summarize(&results, |s| {
+        s.req_marshal + s.req_unmarshal + s.resp_marshal + s.resp_unmarshal
+    });
+
     println!("http_keepalive: {}", !cfg.no_keepalive);
     println!();
-    print_summary("e2e", summarize(&results, |s| s.e2e));
-    print_summary(
-        "json_marshal_client_request",
-        summarize(&results, |s| s.req_marshal),
-    );
-    print_summary(
-        "json_unmarshal_server_request",
-        summarize(&results, |s| s.req_unmarshal),
-    );
-    print_summary(
-        "json_marshal_server_response",
-        summarize(&results, |s| s.resp_marshal),
-    );
-    print_summary(
-        "json_unmarshal_client_response",
-        summarize(&results, |s| s.resp_unmarshal),
-    );
+    print_summary("e2e", e2e);
+    print_summary("json_marshal_client_request", req_marshal);
+    print_summary("json_unmarshal_server_request", req_unmarshal);
+    print_summary("json_marshal_server_response", resp_marshal);
+    print_summary("json_unmarshal_client_response", resp_unmarshal);
+    print_percent_summary("json_codec_total/e2e", json_codec_total, e2e);
 
     Ok(())
 }
@@ -929,6 +927,24 @@ fn print_summary(label: &str, summary: Summary) {
         format_duration(summary.avg),
         format_duration(summary.p95)
     );
+}
+
+fn print_percent_summary(label: &str, numerator: Summary, denominator: Summary) {
+    println!(
+        "{label:<30} avg={} p95={}",
+        format_percent(numerator.avg, denominator.avg),
+        format_percent(numerator.p95, denominator.p95)
+    );
+}
+
+fn format_percent(numerator: Duration, denominator: Duration) -> String {
+    if denominator.is_zero() {
+        return "n/a".to_string();
+    }
+    format!(
+        "{:.2}%",
+        numerator.as_secs_f64() / denominator.as_secs_f64() * 100.0
+    )
 }
 
 fn format_duration(duration: Duration) -> String {

@@ -197,6 +197,9 @@ func main() {
 	reqUnmarshal := summarize(results, func(s sample) time.Duration { return s.reqUnmarshal })
 	respMarshal := summarize(results, func(s sample) time.Duration { return s.respMarshal })
 	respUnmarshal := summarize(results, func(s sample) time.Duration { return s.respUnmarshal })
+	jsonCodecTotal := summarize(results, func(s sample) time.Duration {
+		return s.reqMarshal + s.reqUnmarshal + s.respMarshal + s.respUnmarshal
+	})
 
 	fmt.Printf("method: engine_newPayloadV4\n")
 	fmt.Printf("requests: %d measured + %d warmup\n", cfg.iterations, cfg.warmup)
@@ -213,6 +216,7 @@ func main() {
 	printSummary("json_unmarshal_server_request", reqUnmarshal)
 	printSummary("json_marshal_server_response", respMarshal)
 	printSummary("json_unmarshal_client_response", respUnmarshal)
+	printPercentSummary("json_codec_total/e2e", jsonCodecTotal, e2e)
 }
 
 func (cfg benchmarkConfig) validate() error {
@@ -660,6 +664,17 @@ func summarize(samples []sample, pick func(sample) time.Duration) summary {
 
 func printSummary(name string, s summary) {
 	fmt.Printf("%-30s avg=%s p95=%s\n", name, formatDuration(s.avg), formatDuration(s.p95))
+}
+
+func printPercentSummary(name string, numerator summary, denominator summary) {
+	fmt.Printf("%-30s avg=%s p95=%s\n", name, formatPercent(numerator.avg, denominator.avg), formatPercent(numerator.p95, denominator.p95))
+}
+
+func formatPercent(numerator time.Duration, denominator time.Duration) string {
+	if denominator == 0 {
+		return "n/a"
+	}
+	return fmt.Sprintf("%.2f%%", float64(numerator)/float64(denominator)*100)
 }
 
 func formatDuration(d time.Duration) string {
