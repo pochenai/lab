@@ -24,19 +24,19 @@ contract Caller {
     }
 }
 
-/* 
+/*
 # start anvil
 anvil -p 6500
 # create contracts(CA)
 forge create src/Accesslist.sol:Calculator --rpc-url $L1 --private-key $PK
-forge create src/Accesslist.sol:Caller --constructor-args "0x5FbDB2315678afecb367f032d93F642f64180aa3" --rpc-url $L1 --private-key $PK 
+forge create src/Accesslist.sol:Caller --constructor-args "0x5FbDB2315678afecb367f032d93F642f64180aa3" --rpc-url $L1 --private-key $PK
 
 # get access list
 cast access-list CallerCA "callCalculator()" --rpc-url $L1
 # gas: 30711
 cast send '[{"address": "CA", "storageKeys":["0x0000000000000000000
-000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000001"]}]'  CallerCA "callCalculator()" --rpc-url $L1 --private-key $PK 
+000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000001"]}]'  CallerCA "callCalculator()" --rpc-url $L1 --private-key $PK
 # gas: 30411
 cast send --access-list '[{"address": "CA", "storageKeys":["0x0000000000000000000
-000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000001"]}]'  CA "callCalculator()" --rpc-url $L1 --private-key $PK 
+000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000001"]}]'  CA "callCalculator()" --rpc-url $L1 --private-key $PK
 */

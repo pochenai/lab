@@ -75,7 +75,7 @@ contract ProxyA is Proxy {
     constructor(address implAddress) {
         _impl = implAddress;
     }
-    
+
     function _implementation() internal view override returns (address) {
         return _impl;
     }
@@ -97,7 +97,7 @@ contract ProxyB is Proxy {
     // constructor(address implAddress) {
     //     _impl = implAddress;
     // }
-    
+
     // only if we know the implementation address, ohterwise using constructor it'll read parent contract's storage
     function _implementation() internal view override returns (address) {
         return address(0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f);
@@ -114,8 +114,7 @@ contract ProxyB is Proxy {
     }
 }
 
-
-// 
+//
 // delegatecall 的递归调用链，msg.sender 会一直保持最初的调用者, 所以除了最顶层外，msg.sender == tx.origin也是可能的;
 // 因此，使用delegete call时一定要确保Delegation destination是可信的
 contract TestDelegate2Calls is Test {
@@ -123,6 +122,7 @@ contract TestDelegate2Calls is Test {
     Callee _ca;
     ProxyA _p1;
     ProxyB _p2;
+
     function setUp() public {
         _ca = new Callee();
         _p2 = new ProxyB();
@@ -134,7 +134,7 @@ contract TestDelegate2Calls is Test {
 
     function testDelegate2Calls() public {
         address sysaddr = address(0xffffFFFfFFffffffffffffffFfFFFfffFFFfFFfE);
-        vm.prank(sysaddr, sysaddr); // set msg.sender and tx.origin 
+        vm.prank(sysaddr, sysaddr); // set msg.sender and tx.origin
         (bool success, bytes memory data) = address(_p1).call(abi.encodeWithSignature("inc()"));
         require(success, "Call failed");
         uint256 result = abi.decode(data, (uint256));

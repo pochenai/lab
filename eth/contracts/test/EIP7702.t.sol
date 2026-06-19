@@ -14,7 +14,7 @@ contract TestECRecover is Test {
         testCa = new BatchCallDelegation();
     }
 
-    function testECRecover() view public {
+    function testECRecover() public view {
         // Create a message hash
         bytes32 messageHash = keccak256(abi.encodePacked("Test message"));
 
