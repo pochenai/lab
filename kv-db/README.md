@@ -135,3 +135,4 @@ LETUS 的设计在架构层面具有重构意义，但其对传统区块链存�
 ## References
 - Blog: https://zan.top/web3/resources/blog/LETUS%3A-A-Log-Structured-Efficient-Trusted-Universal-Blockchain-Storage-20240923
 - Paper: LETUS: A Log-Structured Efficient Trusted Universal BlockChain Storage
+- [Readings in Database Systems, 5th Edition](http://www.redbook.io)
