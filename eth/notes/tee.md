@@ -13,6 +13,14 @@ Trusted Execution Environment (TEE) 通常是指一种通过硬件与系统协�
 ### Threat Model
 TEE 的分析首先建立在特定 threat model 之上。与传统虚拟化不同，TEE 不再默认宿主软件栈整体可信，而是假定 adversary 可能具备较高权限，能够控制 host OS、hypervisor、boot firmware、System Management Mode (SMM) 乃至部分外设路径。在更强的攻击模型下，攻击者不仅可能尝试读取敏感数据，也可能试图篡改执行状态、操纵输入、重构 I/O 路径，甚至伪造 attestation 链路。与此同时，多数 TEE 方案并不保证 availability：若攻击者掌握调度、内存分配或平台资源控制权，仍然能够发起 Denial of Service (DoS) 或中断受保护执行。因而，TEE 的目标并不是提供完备的系统安全，而是在特定对抗模型下收缩可信边界，并保护 confidentiality、integrity 与 verifiability。
 
+#### CPU寄存器安全
+- 寄存器不被嗅探: 
+    - 物理上寄存器不出芯片,总线探针够不着;
+    - 软件侧唯一的观测窗口是控制权转移点,而此时寄存器已被 save-then-scrub(SGX synthetic state)或状态被加密保存(SEV VMSA / TDX),高权限软件只看到密文或垃圾值
+- 切换后寄存器状态被抹除
+    - 控制权离开可信域时,微码/可信模块把真实上下文搬进加密的保存区
+    - 恢复的话再从保存区还原
+
 ### Security Principles
 在这一威胁模型下，TEE 的 security principles 可以概括为四类：
 1. 机密性，即敏感内存和关键状态不能被宿主直接观察。
