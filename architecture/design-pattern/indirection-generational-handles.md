@@ -2,6 +2,8 @@
 
 > 核心一行：**`NodeId → Arena → Node`，引用方不持有 reference。**
 
+SlotMap = arena-style O(1) indexed storage + O(1) slot reuse/delete + generational stable handle；在 Rust 中又顺便很好地把复杂对象图从引用/lifetime 问题转换成了 ID lookup 问题。
+
 ## 1. 解决什么问题
 
 树/图结构里"引用一个节点"，默认把两件事焊在一起：
