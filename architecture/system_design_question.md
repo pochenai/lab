@@ -57,65 +57,53 @@ flowchart TD
 ```
 
 ## 全面工程设计与优化需考虑的问题
-                 ① WHY
-                  │
-             What problem?
-                  │
-                  ↓
-             ② BOUNDARY
-                  │
-          Who owns what?
-                  │
-                  ↓
-             ③ DATA FLOW
-                  │
-       Producer → Consumer
-                  │
-                  ↓
-             ④ CONCURRENCY
-                  │
-          What can run together?
-                  │
-                  ↓
-             ⑤ RESOURCES
-                  │
-      CPU / Memory / IO / Buffer
-                  │
-                  ↓
-             ⑥ BACKPRESSURE
-                  │
-        What if demand > capacity?
-                  │
-                  ↓
-             ⑦ SCHEDULING
-                  │
-           Who gets resource?
-                  │
-                  ↓
-             ⑧ FAILURE
-                  │
-          What if something dies?
-                  │
-                  ↓
-             ⑨ LIFECYCLE
-                  │
-          Start → Run → Stop
-                  │
-                  ↓
-             ⑩ OBSERVABILITY
-                  │
-         How do I know it's broken?
-                  │
-                  ↓
-             ⑪ OPTIMIZATION
-                  │
-       Make it faster / cheaper
-                  │
-                  ↓
-             ⑫ VALIDATION
-                  │
-      Does the whole system improve?
 
+纵向主干表示设计时的思考顺序，横向分支表示每层需要考虑的维度。
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3f2ff", "primaryTextColor": "#1683ff", "primaryBorderColor": "#d5dce3", "lineColor": "#9a9a9a", "fontFamily": "sans-serif"}, "flowchart": {"curve": "linear", "nodeSpacing": 30, "rankSpacing": 35, "padding": 16}}}%%
+flowchart TD
+    classDef default fill:#e3f2ff,stroke:#d5dce3,stroke-width:1px,color:#1683ff,rx:12,ry:12;
+    linkStyle default stroke:#9a9a9a,stroke-width:1px;
+    W["WHY<br/>目标、约束与取舍"]
+
+    W --> B["BOUNDARY<br/>职责与所有权边界"]
+    B --> BDC["Divide &amp; Conquer<br/>By function：Interface<br/>By structure：Recursive"]
+    B --> BI["Incremental<br/>Indirect：name → indirect → value<br/>Iterate：log-based design"]
+    B --> BA["Approximate<br/>Eventual consistency：DNS<br/>Loose coupling：Email"]
+
+    BDC --> SM["STATE MANAGEMENT<br/>状态管理"]
+    BI --> SM
+    BA --> SM
+    SM --> BC["Control flow<br/>控制如何流转"]
+    SM --> BD["Data flow<br/>数据如何流转"]
+
+    BC --> R["RESOURCES<br/>CPU / Memory / IO / Buffer"]
+    BD --> R
+    R --> RS["Scheduling<br/>横向资源分配"]
+    R --> RB["Backpressure<br/>极端压力下的资源分配"]
+
+    RS --> L["LIFE CYCLE"]
+    RB --> L
+    L --> LN["正常生命周期<br/>创建、运行、结束、回收"]
+    L --> LF["Failure<br/>失败、取消、恢复、清理<br/>Redundancy：Raft"]
+
+    LN --> V["OBSERVABILITY<br/>如何观察状态、定位问题"]
+    LF --> V
+    V --> O["OPTIMIZATION<br/>Time + Space<br/>Fast path rule: t = f + p·s"]
+
+    O --> OA["Algorithm<br/>复杂度，例如 O(n log n)"]
+    O --> OP["Approximation<br/>Sample · Randomize<br/>Summarize：Bloom filter"]
+    O --> OB["Batch<br/>摊薄单次开销"]
+    O --> OC["Cache<br/>Overlay fast f on slow s"]
+    O --> ON["Concurrency<br/>Shard：状态分片，独立处理<br/>Stream（Pipeline）：阶段分工，缓冲交接<br/>Struggle：状态共享，加锁互斥"]
+
+    OA --> T["VALIDATION<br/>整体系统是否改善"]
+    OP --> T
+    OB --> T
+    OC --> T
+    ON --> T
+```
 
 ## 成长路径
 ```
