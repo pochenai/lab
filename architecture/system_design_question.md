@@ -107,22 +107,26 @@ flowchart TD
 
 ## 成长路径
 ```
-正确性(completness功能修改导致的所有的代码路径/影响层级或半径要覆盖到, soundness逆向/攻击视角/违背规则怎样)
+正确性(completeness功能修改导致的所有的代码路径/影响层级或半径要覆盖到, soundness逆向/攻击视角/违背规则怎样)
       ↓
 局部性能优化
       ↓
 并发设计
       ↓
-Resource Management (CPU / Memory / Disk / IO 是否有异常增长或资源上界)
+Resource Management (CPU / Memory / Disk / IO 是否有异常增长或资源上界； 高并发、突发流量、持续负载)
       ↓
 Scheduling / Backpressure
       ↓
-Failure / Lifecycle (异常、超时、重试、故障恢复)
+Failure / Lifecycle (网络: 异常、超时、重试、故障恢复; 恢复: 恢复风暴、大规模重启、积压重放; 并发：高冲突、线程饥饿、调度抖动)
       ↓
 Observability(日志过滤、日志级别、日志频率、日志量)
       ↓
 System-level Optimization
+
 ```
+
+其实每层的思维方式主要就是正向(需要多层级completeness)+逆向(攻击视角)+极端分布(流量超级大/读超级多/写超级多)
+参考[失败模式](./Production.md)
 
 
 ## References

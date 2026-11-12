@@ -23,6 +23,7 @@ Failure Handling
 │   ├── Fallback（降级）
 │   ├── Rollback（回滚）
 │   └── Compensation（补偿）
+│   └── Storm (防止故障风暴)
 │
 ├── 3. Containment（故障隔离）
 │   ├── Reject / Fail Request（拒绝请求）
